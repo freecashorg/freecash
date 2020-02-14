@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>651</width>
+    <width>690</width>
     <height>504</height>
    </rect>
   </property>
@@ -436,6 +436,10 @@
          <item>
           <widget class="QLineEdit" name="threadNumberEdit"/>
          </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
          <item>
           <widget class="QPushButton" name="startMinerButton">
            <property name="text">
@@ -443,14 +447,14 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QPushButton" name="stopMinerButton">
+           <property name="text">
+            <string>Stop Miner</string>
+           </property>
+          </widget>
+         </item>
         </layout>
-       </item>
-       <item>
-        <widget class="QPushButton" name="stopMinerButton">
-         <property name="text">
-          <string>Stop Miner</string>
-         </property>
-        </widget>
        </item>
        <item>
         <spacer name="verticalSpacer">
@@ -582,6 +586,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="../bitcoin.qrc"/>
+ </resources>
  <connections/>
 </ui>
