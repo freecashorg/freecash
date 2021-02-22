@@ -655,8 +655,9 @@ static UniValue getblocktemplate(const Config &config,
     aMutable.push_back("prevblock");
 
     UniValue devreward(UniValue::VOBJ);
-    devreward.pushKV("value", int64_t(pblock->vtx[0]->vout[1].nValue / SATOSHI));
+    devreward.pushKV("payee", config.GetChainParams().GetConsensus().rewardAddress);
     devreward.pushKV("scriptpubkey", HexStr(pblock->vtx[0]->vout[1].scriptPubKey));
+    devreward.pushKV("value", int64_t(pblock->vtx[0]->vout[1].nValue / SATOSHI));
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("capabilities", aCaps);
