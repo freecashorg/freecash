@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <deque>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
