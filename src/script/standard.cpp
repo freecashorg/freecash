@@ -29,6 +29,8 @@ const char *GetTxnOutputType(txnouttype t) {
             return "scripthash";
         case TX_MULTISIG:
             return "multisig";
+        case TX_CLTV:
+            return "cltv";
         case TX_NULL_DATA:
             return "nulldata";
     }
@@ -78,6 +80,44 @@ bool Solver(const CScript &scriptPubKey, txnouttype &typeRet,
         scriptPubKey.IsPushOnly(scriptPubKey.begin() + 1)) {
         typeRet = TX_NULL_DATA;
         return true;
+    }
+
+    // Check for CLTV scripts: <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP <pubkey/pkhash> <checksigs>
+    if (scriptPubKey.size() >= 35) {  // Minimum size for CLTV script
+        CScript::const_iterator pc = scriptPubKey.begin();
+        opcodetype opcode;
+        std::vector<uint8_t> vch;
+
+        // Try to match CLTV pattern: <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP
+        if (scriptPubKey.GetOp(pc, opcode, vch) &&
+            ((opcode >= OP_1 && opcode <= OP_16) || opcode == OP_PUSHDATA1 || opcode == OP_PUSHDATA2 ||
+             opcode == OP_PUSHDATA4 || (opcode >= 0x01 && opcode <= 0x4b)) &&
+            pc != scriptPubKey.end() &&
+            *pc++ == OP_CHECKLOCKTIMEVERIFY &&
+            pc != scriptPubKey.end() &&
+            *pc++ == OP_DROP) {
+
+            // Check remaining script for standard patterns
+            CScript remainingScript(pc, scriptPubKey.end());
+            txnouttype subType;
+            std::vector<std::vector<uint8_t>> subSolutions;
+
+            if (Solver(remainingScript, subType, subSolutions)) {
+                if (subType == TX_PUBKEY) {
+                    // CLTV with direct pubkey: <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP <pubkey> OP_CHECKSIG
+                    typeRet = TX_CLTV;
+                    vSolutionsRet.push_back(vch);  // Locktime
+                    vSolutionsRet.insert(vSolutionsRet.end(), subSolutions.begin(), subSolutions.end());
+                    return true;
+                } else if (subType == TX_PUBKEYHASH) {
+                    // CLTV with P2PKH: <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+                    typeRet = TX_CLTV;
+                    vSolutionsRet.push_back(vch);  // Locktime
+                    vSolutionsRet.insert(vSolutionsRet.end(), subSolutions.begin(), subSolutions.end());
+                    return true;
+                }
+            }
+        }
     }
 
     // Scan templates

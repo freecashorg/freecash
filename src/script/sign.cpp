@@ -119,6 +119,75 @@ static bool SignStep(const BaseSignatureCreator &creator,
             ret.push_back(valtype());
             return (SignN(vSolutions, creator, scriptPubKey, ret));
 
+        case TX_CLTV: {
+            // Extract locktime and pubkey/keyhash
+            if (vSolutions.size() < 2) {
+                fprintf(stderr, "CLTV: vSolutions.size() < 2\n");
+                return false;
+            }
+
+            // vSolutions[0] = locktime, remaining are from sub-script
+            std::vector<uint8_t> locktime = vSolutions[0];
+            fprintf(stderr, "CLTV: locktime = %s\n", HexStr(locktime.begin(), locktime.end()).c_str());
+
+            // Check if this is CLTV with direct pubkey (vSolutions.size() == 2)
+            if (vSolutions.size() == 2) {
+                // Direct pubkey: <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP <pubkey> OP_CHECKSIG
+                CPubKey pubkey(vSolutions[1]);
+                if (!pubkey.IsValid()) {
+                    std::cout << "CLTV: Invalid pubkey" << std::endl;
+                    return false;
+                }
+
+                CKeyID cltvKeyID = pubkey.GetID();
+                fprintf(stderr, "CLTV: Using direct pubkey, keyID = %s\n",
+                        HexStr(cltvKeyID.begin(), cltvKeyID.end()).c_str());
+
+                // For CLTV, we need to sign the entire script including CLTV checks
+                CScript fullScript;
+                fullScript << locktime << OP_CHECKLOCKTIMEVERIFY << OP_DROP << vSolutions[1] << OP_CHECKSIG;
+                fprintf(stderr, "CLTV: fullScript = %s\n", HexStr(fullScript.begin(), fullScript.end()).c_str());
+
+                if (!Sign1(cltvKeyID, creator, fullScript, ret)) {
+                    fprintf(stderr, "CLTV: Sign1 failed\n");
+                    return false;
+                }
+
+                return true;
+            }
+                // Check if this is CLTV with P2PKH (vSolutions.size() == 3)
+            else if (vSolutions.size() == 3) {
+                // P2PKH: <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP OP_DUP OP_HASH160 <keyhash> OP_EQUALVERIFY OP_CHECKSIG
+                CKeyID cltvKeyID = CKeyID(uint160(vSolutions[2]));
+                fprintf(stderr, "CLTV: Using P2PKH, keyID = %s\n", HexStr(cltvKeyID.begin(), cltvKeyID.end()).c_str());
+
+                // For CLTV, we need to sign the entire script including CLTV checks
+                CScript fullScript;
+                fullScript << locktime << OP_CHECKLOCKTIMEVERIFY << OP_DROP << OP_DUP << OP_HASH160 << vSolutions[2]
+                           << OP_EQUALVERIFY << OP_CHECKSIG;
+                fprintf(stderr, "CLTV: fullScript = %s\n", HexStr(fullScript.begin(), fullScript.end()).c_str());
+
+                if (!Sign1(cltvKeyID, creator, fullScript, ret)) {
+                    fprintf(stderr, "CLTV: Sign1 failed\n");
+                    return false;
+                }
+
+                // Add the pubkey to the result
+                CPubKey pubkey;
+                if (!creator.KeyStore().GetPubKey(cltvKeyID, pubkey)) {
+                    fprintf(stderr, "CLTV: Could not get pubkey\n");
+                    return false;
+                }
+                ret.push_back(ToByteVector(pubkey));
+                fprintf(stderr, "CLTV: Added pubkey to result\n");
+
+                return true;
+            } else {
+                fprintf(stderr, "CLTV: Unsupported vSolutions size: %zu\n", vSolutions.size());
+                return false;
+            }
+        }
+
         default:
             return false;
     }
