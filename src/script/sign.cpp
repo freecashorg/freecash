@@ -11,6 +11,8 @@
 #include <primitives/transaction.h>
 #include <script/standard.h>
 #include <uint256.h>
+#include <iostream>
+#include "utilstrencodings.h"
 
 typedef std::vector<uint8_t> valtype;
 
